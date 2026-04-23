@@ -1,8 +1,10 @@
 package com.example.lifeloggerapp.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -21,7 +23,10 @@ import com.example.lifeloggerapp.ui.theme.SageGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onAddClick: () -> Unit) { // Added the parameter here
+fun HomeScreen(onAddClick: () -> Unit) {
+    // Calculate how many logs we have dynamically
+    val logCount = GlobalLogs.size
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -44,10 +49,9 @@ fun HomeScreen(onAddClick: () -> Unit) { // Added the parameter here
             )
         },
         containerColor = CreamBackground,
-
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddClick, // Now this button triggers the navigation!
+                onClick = onAddClick,
                 containerColor = SageGreen,
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp)
@@ -68,7 +72,7 @@ fun HomeScreen(onAddClick: () -> Unit) { // Added the parameter here
             // Header Section
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "TODAY, AUGUST 24",
+                text = "TODAY, APRIL 23",
                 color = Color.Gray,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold
@@ -83,9 +87,9 @@ fun HomeScreen(onAddClick: () -> Unit) { // Added the parameter here
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // The Green "4 Logs" Card
+            // --- DYNAMIC OVERVIEW CARDS ---
             OverviewCard(
-                title = "4 Logs",
+                title = "$logCount ${if (logCount == 1) "Log" else "Logs"}",
                 subtitle = "Documented today",
                 icon = "📝",
                 backgroundColor = Color(0xFFEDF2E6)
@@ -93,35 +97,36 @@ fun HomeScreen(onAddClick: () -> Unit) { // Added the parameter here
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // The "Balanced" Mood Card
             OverviewCard(
-                title = "Balanced",
-                subtitle = "Average mood level",
-                icon = "😊",
+                title = if (GlobalLogs.isEmpty()) "No Logs" else GlobalLogs.first().mood,
+                subtitle = "Latest mood level",
+                icon = "✨",
                 backgroundColor = Color(0xFFF7F7F0)
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Scrollable Timeline
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp)
-            ) {
-                item {
-                    TimelineItem(
-                        time = "08:30 AM",
-                        title = "Morning Reflection",
-                        description = "Started the day with a cold brew and some light reading. Feeling refreshed and focused for the tasks ahead."
-                    )
+            // --- DYNAMIC TIMELINE ---
+            if (GlobalLogs.isEmpty()) {
+                // Show a friendly message if there are no logs
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No logs yet. Tap + to start!", color = Color.Gray)
                 }
-                item {
-                    TimelineItem(
-                        time = "01:15 PM",
-                        title = "Lunch at the park",
-                        description = "Had a great salad. The weather was perfect for sitting outside. Saw a cute golden retriever chasing a frisbee.",
-                        showLine = false
-                    )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(GlobalLogs) { log ->
+                        TimelineItem(
+                            time = log.time,
+                            title = log.title,
+                            description = log.note,
+                            mood = log.mood,
+                            // Only show the line if it's NOT the last item in the list
+                            showLine = log != GlobalLogs.last()
+                        )
+                    }
                 }
             }
         }
@@ -161,6 +166,7 @@ fun TimelineItem(
     time: String,
     title: String,
     description: String,
+    mood: String = "",
     showLine: Boolean = true
 ) {
     Row(
@@ -176,7 +182,7 @@ fun TimelineItem(
                 modifier = Modifier.size(12.dp),
                 shape = RoundedCornerShape(50),
                 color = Color(0xFFC5D1B3),
-                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White)
+                border = BorderStroke(2.dp, Color.White)
             ) {}
 
             if (showLine) {
@@ -202,7 +208,12 @@ fun TimelineItem(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (mood.isNotEmpty()) {
+                            Text(mood, modifier = Modifier.padding(end = 8.dp))
+                        }
+                        Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
                     Text(text = time, color = Color.Gray, fontSize = 12.sp)
                 }
                 Spacer(modifier = Modifier.height(8.dp))

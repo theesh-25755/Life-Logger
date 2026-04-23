@@ -4,12 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.lifeloggerapp.ui.screens.HomeScreen
-import com.example.lifeloggerapp.ui.screens.NewEntryScreen
+import com.example.lifeloggerapp.ui.screens.*
 import com.example.lifeloggerapp.ui.theme.LifeLoggerAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,36 +23,83 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             LifeLoggerAppTheme {
-                // We call the Navigation function instead of just one screen
-                AppNavigation()
+                val navController = rememberNavController()
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
+
+                Scaffold(
+                    bottomBar = {
+                        // Only show bottom bar on main navigation screens
+                        if (currentRoute != "new_entry") {
+                            BottomNavigationBar(navController, currentRoute)
+                        }
+                    }
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = "home",
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        composable("home") {
+                            HomeScreen(onAddClick = { navController.navigate("new_entry") })
+                        }
+                        composable("calendar") { CalendarScreen() }
+                        composable("insights") { InsightsScreen() }
+                        composable("profile") { ProfileScreen() }
+                        composable("new_entry") {
+                            NewEntryScreen(onBackClick = { navController.popBackStack() })
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun AppNavigation() {
-    // This is the "GPS" that remembers which screen you are on
-    val navController = rememberNavController()
+fun BottomNavigationBar(navController: androidx.navigation.NavController, currentRoute: String?) {
+    NavigationBar {
+        // --- HOME ---
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+            label = { Text("Home") },
+            selected = currentRoute == "home",
+            onClick = { navigateTo(navController, "home", currentRoute) }
+        )
 
-    NavHost(
-        navController = navController,
-        startDestination = "home" // The app starts on the Home screen
-    ) {
-        // Route 1: The Home Screen
-        composable("home") {
-            HomeScreen(onAddClick = {
-                // When "+" is clicked, go to the new_entry route
-                navController.navigate("new_entry")
-            })
-        }
+        // --- CALENDAR (Added) ---
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.DateRange, contentDescription = "Calendar") },
+            label = { Text("Calendar") },
+            selected = currentRoute == "calendar",
+            onClick = { navigateTo(navController, "calendar", currentRoute) }
+        )
 
-        // Route 2: The New Entry Screen
-        composable("new_entry") {
-            NewEntryScreen(onBackClick = {
-                // When back is clicked, go back to the previous screen
-                navController.popBackStack()
-            })
+        // --- INSIGHTS (Added) ---
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Assessment, contentDescription = "Insights") },
+            label = { Text("Insights") },
+            selected = currentRoute == "insights",
+            onClick = { navigateTo(navController, "insights", currentRoute) }
+        )
+
+        // --- PROFILE ---
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+            label = { Text("Profile") },
+            selected = currentRoute == "profile",
+            onClick = { navigateTo(navController, "profile", currentRoute) }
+        )
+    }
+}
+
+// Helper function to handle clean navigation
+private fun navigateTo(navController: androidx.navigation.NavController, route: String, currentRoute: String?) {
+    if (currentRoute != route) {
+        navController.navigate(route) {
+            popUpTo("home") { saveState = true }
+            launchSingleTop = true
+            restoreState = true
         }
     }
 }
