@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.lifeloggerapp.ui.theme.CreamBackground
 import com.example.lifeloggerapp.ui.theme.SageGreen
+import com.example.lifeloggerapp.ui.screens.GlobalLogs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
