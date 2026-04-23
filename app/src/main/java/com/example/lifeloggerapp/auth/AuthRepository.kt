@@ -3,6 +3,7 @@ package com.example.lifeloggerapp.auth
 import com.example.lifeloggerapp.supabase
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.postgrest.postgrest
 
 class AuthRepository {
 
@@ -42,4 +43,17 @@ class AuthRepository {
     fun getCurrentUser() = supabase.auth.currentUserOrNull()
 
     fun getCurrentUserId(): String? = supabase.auth.currentUserOrNull()?.id
+
+    suspend fun createProfile(userId: String, email: String): Result<Unit> {
+        return try {
+            val payload = mapOf(
+                "id"           to userId,
+                "display_name" to email.substringBefore("@")
+            )
+            supabase.postgrest["profiles"].insert(payload)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

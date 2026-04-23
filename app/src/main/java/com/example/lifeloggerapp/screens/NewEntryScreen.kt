@@ -1,9 +1,5 @@
 package com.example.lifeloggerapp.ui.screens
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,44 +21,43 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.lifeloggerapp.entry.EntryState
+import com.example.lifeloggerapp.entry.EntryViewModel
 import com.example.lifeloggerapp.ui.theme.CreamBackground
 import com.example.lifeloggerapp.ui.theme.SageGreen
 
-// --- STEP 1: DATA STRUCTURE & GLOBAL LIST ---
-// This list lives as long as the app is open.
-data class LifeLog(
-    val title: String,
-    val note: String,
-    val mood: String,
-    val tag: String,
-    val imageUri: Uri? = null,
-    val date: String = "TODAY, APRIL 23",
-    val time: String = "10:40 PM"
-)
-
-// Global list that UI observes for changes
-val GlobalLogs = mutableStateListOf<LifeLog>()
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewEntryScreen(onBackClick: () -> Unit) {
-    // --- STATE VARIABLES ---
+fun NewEntryScreen(
+    onBackClick: () -> Unit,
+    entryViewModel: EntryViewModel = viewModel()
+) {
     var title by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var selectedTag by remember { mutableStateOf("Personal") }
-    var selectedMood by remember { mutableStateOf("😊") }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedMood by remember { mutableStateOf("neutral") }
 
-    // --- DATA LISTS ---
+    val entryState by entryViewModel.entryState.collectAsState()
+
     val tags = listOf("Workout", "Study", "Personal", "Event")
-    val moods = listOf("😢", "😐", "😊", "😁", "🤩")
 
-    // --- IMAGE PICKER LOGIC ---
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri -> selectedImageUri = uri }
+    // Mood options: emoji for display, value for storage
+    val moods = listOf(
+        "😢" to "sad",
+        "😐" to "neutral",
+        "😊" to "calm",
+        "😁" to "happy",
+        "🤩" to "ecstatic"
     )
+
+    LaunchedEffect(entryState) {
+        if (entryState is EntryState.Success) {
+            entryViewModel.resetState()
+            onBackClick()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -74,21 +69,29 @@ fun NewEntryScreen(onBackClick: () -> Unit) {
                     }
                 },
                 actions = {
-                    // --- STEP 2: MODIFIED SAVE BUTTON ---
-                    TextButton(onClick = {
-                        if (title.isNotBlank() && note.isNotBlank()) {
-                            // Add the new entry to the start of our global list
-                            GlobalLogs.add(0, LifeLog(
-                                title = title,
-                                note = note,
-                                mood = selectedMood,
-                                tag = selectedTag,
-                                imageUri = selectedImageUri
-                            ))
-                            onBackClick() // Navigate back to Home
+                    TextButton(
+                        onClick = {
+                            if (title.isNotBlank()) {
+                                entryViewModel.createEntry(
+                                    title = title,
+                                    body = note.ifBlank { null },
+                                    mood = selectedMood,
+                                    category = selectedTag,
+                                    tags = listOf(selectedTag)
+                                )
+                            }
+                        },
+                        enabled = entryState !is EntryState.Loading && title.isNotBlank()
+                    ) {
+                        if (entryState is EntryState.Loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = SageGreen
+                            )
+                        } else {
+                            Text("Save", color = SageGreen, fontWeight = FontWeight.Bold)
                         }
-                    }) {
-                        Text("Save", color = SageGreen, fontWeight = FontWeight.Bold)
                     }
                 }
             )
@@ -102,12 +105,16 @@ fun NewEntryScreen(onBackClick: () -> Unit) {
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            // Header: Date & Time
-            Text("TODAY, APRIL 23 • 10:40 PM", color = Color.Gray, fontSize = 12.sp)
+            Text(
+                text = java.time.LocalDate.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d"))
+                    .uppercase(),
+                color = Color.Gray,
+                fontSize = 12.sp
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- MOOD PICKER ---
             Text("How are you feeling?", fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Row(
                 modifier = Modifier
@@ -115,22 +122,23 @@ fun NewEntryScreen(onBackClick: () -> Unit) {
                     .padding(vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                moods.forEach { mood ->
+                moods.forEach { (emoji, value) ->
                     MoodEmoji(
-                        emoji = mood,
-                        isSelected = selectedMood == mood,
-                        onClick = { selectedMood = mood }
+                        emoji = emoji,
+                        isSelected = selectedMood == value,
+                        onClick = { selectedMood = value }
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Title Input
             TextField(
                 value = title,
                 onValueChange = { title = it },
-                placeholder = { Text("Title", fontSize = 24.sp, fontWeight = FontWeight.Bold) },
+                placeholder = {
+                    Text("Title", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
@@ -140,7 +148,6 @@ fun NewEntryScreen(onBackClick: () -> Unit) {
                 )
             )
 
-            // Interactive Tags Row
             Row(
                 modifier = Modifier.padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -156,56 +163,15 @@ fun NewEntryScreen(onBackClick: () -> Unit) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Image Display Area
-            if (selectedImageUri != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .padding(vertical = 8.dp)
-                ) {
-                    AsyncImage(
-                        model = selectedImageUri,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(16.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-
-                    IconButton(
-                        onClick = { selectedImageUri = null },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Remove Image",
-                            tint = Color.White
-                        )
-                    }
-                }
+            if (entryState is EntryState.Error) {
+                Text(
+                    text = (entryState as EntryState.Error).message,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
             }
 
-            // Action Button: Add Image
-            OutlinedButton(
-                onClick = {
-                    photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                },
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.AddPhotoAlternate, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Add Image")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Story Input
             TextField(
                 value = note,
                 onValueChange = { note = it },
