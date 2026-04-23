@@ -16,11 +16,30 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.lifeloggerapp.auth.AuthState
+import com.example.lifeloggerapp.auth.AuthViewModel
 import com.example.lifeloggerapp.ui.theme.SageGreen
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(
+    onLogout: () -> Unit,
+    authViewModel: AuthViewModel = viewModel()
+) {
     var isDarkMode by remember { mutableStateOf(false) }
+
+    val authState by authViewModel.authState.collectAsState()
+    val currentUser = authViewModel.getCurrentUser()
+    val userEmail = currentUser?.email ?: "No email"
+    // Use the part before @ as display name fallback until profiles table is set up
+    val displayName = userEmail.substringBefore("@")
+
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Success) {
+            authViewModel.resetState()
+            onLogout()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -30,9 +49,8 @@ fun ProfileScreen() {
     ) {
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 1. Profile Image & Info
+        // Profile Image & Info
         Box(contentAlignment = Alignment.BottomEnd) {
-            // Circle for profile photo
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -40,27 +58,34 @@ fun ProfileScreen() {
                     .background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(60.dp))
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(60.dp)
+                )
             }
-            // Small Green Edit Button
             IconButton(
-                onClick = { /* Edit action */ },
+                onClick = { /* Edit action — Phase 3 */ },
                 modifier = Modifier
                     .size(30.dp)
                     .clip(CircleShape)
                     .background(SageGreen)
             ) {
-                Icon(Icons.Default.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Elena Richardson", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text("elena.richardson@journal.com", color = Color.Gray, fontSize = 14.sp)
+        Text(displayName, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(userEmail, color = Color.Gray, fontSize = 14.sp)
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // 2. Settings List Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
@@ -70,9 +95,10 @@ fun ProfileScreen() {
                 SettingsItem(Icons.Default.Sync, "Sync Status", "All data synced")
                 SettingsItem(Icons.Default.CloudQueue, "Backup & Restore", null)
 
-                // Dark Mode Row with a Switch
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -91,26 +117,36 @@ fun ProfileScreen() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 3. Logout Button
         Button(
-            onClick = { /* Logout */ },
+            onClick = { authViewModel.signOut() },
+            enabled = authState !is AuthState.Loading,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFEBEE)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Logout, contentDescription = null, tint = Color.Red)
-                Spacer(Modifier.width(8.dp))
-                Text("Logout", color = Color.Red)
+            if (authState is AuthState.Loading) {
+                CircularProgressIndicator(
+                    color = Color.Red,
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Logout, contentDescription = null, tint = Color.Red)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Logout", color = Color.Red)
+                }
             }
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // 4. Stats Row (Total Logs & Streak)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            StatCard("Total Logs", "342", SageGreen, Modifier.weight(1f))
-            StatCard("Streak", "12 days", Color(0xFFE8EAF6), Modifier.weight(1f))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            StatCard("Total Logs", "—", SageGreen, Modifier.weight(1f))
+            StatCard("Streak", "—", Color(0xFFE8EAF6), Modifier.weight(1f))
         }
     }
 }
@@ -118,7 +154,9 @@ fun ProfileScreen() {
 @Composable
 fun SettingsItem(icon: ImageVector, title: String, subtitle: String?) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -142,8 +180,17 @@ fun StatCard(title: String, value: String, color: Color, modifier: Modifier) {
         shape = RoundedCornerShape(24.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text(title, color = if (color == SageGreen) Color.White else Color.Gray, fontSize = 14.sp)
-            Text(value, color = if (color == SageGreen) Color.White else Color.Black, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(
+                title,
+                color = if (color == SageGreen) Color.White else Color.Gray,
+                fontSize = 14.sp
+            )
+            Text(
+                value,
+                color = if (color == SageGreen) Color.White else Color.Black,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
