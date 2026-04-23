@@ -28,10 +28,16 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             val result = repository.signUp(email, password)
-            _authState.value = if (result.isSuccess) {
-                AuthState.Success
+            if (result.isSuccess) {
+                val userId = repository.getCurrentUserId()
+                if (userId != null) {
+                    repository.createProfile(userId, email)
+                }
+                _authState.value = AuthState.Success
             } else {
-                AuthState.Error(result.exceptionOrNull()?.message ?: "Sign up failed")
+                _authState.value = AuthState.Error(
+                    result.exceptionOrNull()?.message ?: "Sign up failed"
+                )
             }
         }
     }

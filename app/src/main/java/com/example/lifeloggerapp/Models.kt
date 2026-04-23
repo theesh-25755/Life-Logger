@@ -5,11 +5,11 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class Mood {
-    @SerialName("happy")   HAPPY,
-    @SerialName("calm")    CALM,
-    @SerialName("focused") FOCUSED,
-    @SerialName("tired")   TIRED,
-    @SerialName("neutral") NEUTRAL
+    @SerialName("sad")      SAD,
+    @SerialName("neutral")  NEUTRAL,
+    @SerialName("calm")     CALM,
+    @SerialName("happy")    HAPPY,
+    @SerialName("ecstatic") ECSTATIC
 }
 
 @Serializable
