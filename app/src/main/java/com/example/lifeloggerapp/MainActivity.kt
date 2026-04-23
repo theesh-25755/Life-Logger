@@ -10,10 +10,12 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.lifeloggerapp.auth.AuthViewModel
 import com.example.lifeloggerapp.ui.screens.*
 import com.example.lifeloggerapp.ui.theme.LifeLoggerAppTheme
 
@@ -23,67 +25,105 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             LifeLoggerAppTheme {
-                val navController = rememberNavController()
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentRoute = navBackStackEntry?.destination?.route
-
-                Scaffold(
-                    bottomBar = {
-                        // Only show bottom bar on main navigation screens
-                        if (currentRoute != "new_entry") {
-                            BottomNavigationBar(navController, currentRoute)
-                        }
-                    }
-                ) { innerPadding ->
-                    NavHost(
-                        navController = navController,
-                        startDestination = "home",
-                        modifier = Modifier.padding(innerPadding)
-                    ) {
-                        composable("home") {
-                            HomeScreen(onAddClick = { navController.navigate("new_entry") })
-                        }
-                        composable("calendar") { CalendarScreen() }
-                        composable("insights") { InsightsScreen() }
-                        composable("profile") { ProfileScreen() }
-                        composable("new_entry") {
-                            NewEntryScreen(onBackClick = { navController.popBackStack() })
-                        }
-                    }
-                }
+                AppRoot()
             }
         }
     }
 }
 
 @Composable
-fun BottomNavigationBar(navController: androidx.navigation.NavController, currentRoute: String?) {
+fun AppRoot() {
+    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = viewModel()
+
+    // Check if user is already logged in
+    val startDestination = if (authViewModel.isLoggedIn()) "home" else "login"
+
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    val bottomBarRoutes = listOf("home", "calendar", "insights", "profile")
+
+    Scaffold(
+        bottomBar = {
+            if (currentRoute in bottomBarRoutes) {
+                BottomNavigationBar(navController, currentRoute)
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable("login") {
+                LoginScreen(
+                    onLoginSuccess = {
+                        navController.navigate("home") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    },
+                    onNavigateToRegister = { navController.navigate("register") },
+                    authViewModel = authViewModel
+                )
+            }
+            composable("register") {
+                RegisterScreen(
+                    onRegisterSuccess = {
+                        navController.navigate("home") {
+                            popUpTo("register") { inclusive = true }
+                        }
+                    },
+                    onNavigateToLogin = { navController.popBackStack() },
+                    authViewModel = authViewModel
+                )
+            }
+            composable("home") {
+                HomeScreen(onAddClick = { navController.navigate("new_entry") })
+            }
+            composable("calendar") { CalendarScreen() }
+            composable("insights") { InsightsScreen() }
+            composable("profile") {
+                ProfileScreen(
+                    onLogout = {
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    authViewModel = authViewModel
+                )
+            }
+            composable("new_entry") {
+                NewEntryScreen(onBackClick = { navController.popBackStack() })
+            }
+        }
+    }
+}
+
+@Composable
+fun BottomNavigationBar(
+    navController: androidx.navigation.NavController,
+    currentRoute: String?
+) {
     NavigationBar {
-        // --- HOME ---
         NavigationBarItem(
             icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
             label = { Text("Home") },
             selected = currentRoute == "home",
             onClick = { navigateTo(navController, "home", currentRoute) }
         )
-
-        // --- CALENDAR (Added) ---
         NavigationBarItem(
             icon = { Icon(Icons.Default.DateRange, contentDescription = "Calendar") },
             label = { Text("Calendar") },
             selected = currentRoute == "calendar",
             onClick = { navigateTo(navController, "calendar", currentRoute) }
         )
-
-        // --- INSIGHTS (Added) ---
         NavigationBarItem(
             icon = { Icon(Icons.Default.Assessment, contentDescription = "Insights") },
             label = { Text("Insights") },
             selected = currentRoute == "insights",
             onClick = { navigateTo(navController, "insights", currentRoute) }
         )
-
-        // --- PROFILE ---
         NavigationBarItem(
             icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
             label = { Text("Profile") },
@@ -93,8 +133,11 @@ fun BottomNavigationBar(navController: androidx.navigation.NavController, curren
     }
 }
 
-// Helper function to handle clean navigation
-private fun navigateTo(navController: androidx.navigation.NavController, route: String, currentRoute: String?) {
+private fun navigateTo(
+    navController: androidx.navigation.NavController,
+    route: String,
+    currentRoute: String?
+) {
     if (currentRoute != route) {
         navController.navigate(route) {
             popUpTo("home") { saveState = true }
