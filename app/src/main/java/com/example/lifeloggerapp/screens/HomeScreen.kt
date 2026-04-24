@@ -26,6 +26,10 @@ import com.example.lifeloggerapp.ui.theme.CreamBackground
 import com.example.lifeloggerapp.ui.theme.SageGreen
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import androidx.lifecycle.repeatOnLifecycle
+import com.example.lifeloggerapp.syncManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +42,16 @@ fun HomeScreen(
     val todayPrefix = LocalDate.now().toString() // "2025-04-23"
     val todayEntries = entries.filter { it.createdAt?.startsWith(todayPrefix) == true }
     val earlierEntries = entries.filter { it.createdAt?.startsWith(todayPrefix) == false }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    LaunchedEffect(lifecycleOwner) {
+        withContext(Dispatchers.IO) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+                syncManager.sync()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
