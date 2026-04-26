@@ -15,25 +15,23 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.lifeloggerapp.data.local.EntryEntity
 import com.example.lifeloggerapp.entry.EntryViewModel
-import com.example.lifeloggerapp.ui.theme.CreamBackground
-import com.example.lifeloggerapp.ui.theme.SageGreen
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import androidx.lifecycle.repeatOnLifecycle
 import com.example.lifeloggerapp.syncManager
+import com.example.lifeloggerapp.ui.theme.SageGreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +41,7 @@ fun HomeScreen(
 ) {
     val entries by entryViewModel.entries.collectAsState()
 
-    val todayPrefix = LocalDate.now().toString() // "2025-04-23"
+    val todayPrefix = LocalDate.now().toString()
     val todayEntries = entries.filter { it.createdAt?.startsWith(todayPrefix) == true }
     val earlierEntries = entries.filter { it.createdAt?.startsWith(todayPrefix) == false }
 
@@ -66,7 +64,9 @@ fun HomeScreen(
                             if (entries.any { !it.synced }) Icons.Default.CloudOff
                             else Icons.Default.CloudDone,
                             contentDescription = null,
-                            tint = if (entries.any { !it.synced }) Color.Gray else SageGreen
+                            tint = if (entries.any { !it.synced })
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            else SageGreen
                         )
                         Spacer(Modifier.width(8.dp))
                         Text("My Logs", fontWeight = FontWeight.Bold)
@@ -76,15 +76,18 @@ fun HomeScreen(
                     IconButton(onClick = { }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         },
-        containerColor = CreamBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddClick,
                 containerColor = SageGreen,
-                contentColor = Color.White,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add New Log")
@@ -103,7 +106,7 @@ fun HomeScreen(
                 text = LocalDate.now()
                     .format(DateTimeFormatter.ofPattern("EEEE, MMMM d"))
                     .uppercase(),
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -112,6 +115,7 @@ fun HomeScreen(
                 text = "Daily Overview",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
 
@@ -120,24 +124,26 @@ fun HomeScreen(
             OverviewCard(
                 title = "${todayEntries.size} ${if (todayEntries.size == 1) "Log" else "Logs"}",
                 subtitle = "Documented today",
-                icon = "📝",
-                backgroundColor = Color(0xFFEDF2E6)
+                icon = "📝"
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             OverviewCard(
-                title = todayEntries.firstOrNull()?.mood?.replaceFirstChar { it.uppercase() } ?: "No logs",
+                title = todayEntries.firstOrNull()?.mood?.replaceFirstChar { it.uppercase() }
+                    ?: "No logs",
                 subtitle = "Latest mood",
-                icon = "✨",
-                backgroundColor = Color(0xFFF7F7F0)
+                icon = "✨"
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
             if (entries.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No logs yet. Tap + to start!", color = Color.Gray)
+                    Text(
+                        "No logs yet. Tap + to start!",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
                 LazyColumn(
@@ -145,9 +151,7 @@ fun HomeScreen(
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     if (todayEntries.isNotEmpty()) {
-                        item {
-                            SectionLabel("Today")
-                        }
+                        item { SectionLabel("Today") }
                         items(todayEntries) { entry ->
                             EntryTimelineItem(
                                 entry = entry,
@@ -155,11 +159,8 @@ fun HomeScreen(
                             )
                         }
                     }
-
                     if (earlierEntries.isNotEmpty()) {
-                        item {
-                            SectionLabel("Earlier")
-                        }
+                        item { SectionLabel("Earlier") }
                         items(earlierEntries) { entry ->
                             EntryTimelineItem(
                                 entry = entry,
@@ -179,7 +180,7 @@ fun SectionLabel(text: String) {
         text = text,
         fontSize = 12.sp,
         fontWeight = FontWeight.SemiBold,
-        color = Color.Gray,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(vertical = 8.dp)
     )
 }
@@ -215,15 +216,15 @@ fun EntryTimelineItem(entry: EntryEntity, showLine: Boolean = true) {
             Surface(
                 modifier = Modifier.size(12.dp),
                 shape = RoundedCornerShape(50),
-                color = Color(0xFFC5D1B3),
-                border = BorderStroke(2.dp, Color.White)
+                color = SageGreen.copy(alpha = 0.5f),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.background)
             ) {}
             if (showLine) {
                 Box(
                     modifier = Modifier
                         .width(2.dp)
                         .fillMaxHeight()
-                        .background(Color(0xFFE0E0E0))
+                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                 )
             }
         }
@@ -232,7 +233,9 @@ fun EntryTimelineItem(entry: EntryEntity, showLine: Boolean = true) {
             modifier = Modifier
                 .padding(bottom = 24.dp, end = 8.dp)
                 .fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
             shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
@@ -246,16 +249,21 @@ fun EntryTimelineItem(entry: EntryEntity, showLine: Boolean = true) {
                         Text(
                             text = entry.title,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    Text(text = timeFormatted, color = Color.Gray, fontSize = 12.sp)
+                    Text(
+                        text = timeFormatted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
                 }
                 if (!entry.body.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = entry.body,
-                        color = Color.DarkGray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         lineHeight = 20.sp,
                         maxLines = 2
@@ -266,7 +274,7 @@ fun EntryTimelineItem(entry: EntryEntity, showLine: Boolean = true) {
                     Text(
                         text = "Pending sync",
                         fontSize = 11.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -275,11 +283,13 @@ fun EntryTimelineItem(entry: EntryEntity, showLine: Boolean = true) {
 }
 
 @Composable
-fun OverviewCard(title: String, subtitle: String, icon: String, backgroundColor: Color) {
+fun OverviewCard(title: String, subtitle: String, icon: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Row(
             modifier = Modifier.padding(20.dp),
@@ -295,8 +305,17 @@ fun OverviewCard(title: String, subtitle: String, icon: String, backgroundColor:
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column {
-                Text(text = title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(text = subtitle, color = Color.Gray, fontSize = 14.sp)
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp
+                )
             }
         }
     }

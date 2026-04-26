@@ -37,67 +37,71 @@ class MainActivity : ComponentActivity() {
 fun AppRoot() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
+    val themeViewModel: ThemeViewModel = viewModel()
+    val isDarkMode by themeViewModel.isDarkMode.collectAsState()
 
-    // Check if user is already logged in
-//    val startDestination = if (BuildConfig.DEBUG || authViewModel.isLoggedIn()) "home" else "login"
     val startDestination = if (authViewModel.isLoggedIn()) "home" else "login"
+    //    val startDestination = if (BuildConfig.DEBUG || authViewModel.isLoggedIn()) "home" else "login"
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
     val bottomBarRoutes = listOf("home", "calendar", "insights", "profile")
 
-    Scaffold(
-        bottomBar = {
-            if (currentRoute in bottomBarRoutes) {
-                BottomNavigationBar(navController, currentRoute)
+    LifeLoggerAppTheme(darkTheme = isDarkMode) {
+        Scaffold(
+            bottomBar = {
+                if (currentRoute in bottomBarRoutes) {
+                    BottomNavigationBar(navController, currentRoute)
+                }
             }
-        }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = startDestination,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable("login") {
-                LoginScreen(
-                    onLoginSuccess = {
-                        navController.navigate("home") {
-                            popUpTo("login") { inclusive = true }
-                        }
-                    },
-                    onNavigateToRegister = { navController.navigate("register") },
-                    authViewModel = authViewModel
-                )
-            }
-            composable("register") {
-                RegisterScreen(
-                    onRegisterSuccess = {
-                        navController.navigate("home") {
-                            popUpTo("register") { inclusive = true }
-                        }
-                    },
-                    onNavigateToLogin = { navController.popBackStack() },
-                    authViewModel = authViewModel
-                )
-            }
-            composable("home") {
-                HomeScreen(onAddClick = { navController.navigate("new_entry") })
-            }
-//            composable("calendar") { CalendarScreen() }
-//            composable("insights") { InsightsScreen() }
-            composable("profile") {
-                ProfileScreen(
-                    onLogout = {
-                        navController.navigate("login") {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    },
-                    authViewModel = authViewModel
-                )
-            }
-            composable("new_entry") {
-                NewEntryScreen(onBackClick = { navController.popBackStack() })
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = startDestination,
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                composable("login") {
+                    LoginScreen(
+                        onLoginSuccess = {
+                            navController.navigate("home") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        },
+                        onNavigateToRegister = { navController.navigate("register") },
+                        authViewModel = authViewModel
+                    )
+                }
+                composable("register") {
+                    RegisterScreen(
+                        onRegisterSuccess = {
+                            navController.navigate("home") {
+                                popUpTo("register") { inclusive = true }
+                            }
+                        },
+                        onNavigateToLogin = { navController.popBackStack() },
+                        authViewModel = authViewModel
+                    )
+                }
+                composable("home") {
+                    HomeScreen(onAddClick = { navController.navigate("new_entry") })
+                }
+//                composable("calendar") { CalendarScreen() }
+//                composable("insights") { InsightsScreen() }
+                composable("profile") {
+                    ProfileScreen(
+                        onLogout = {
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        },
+                        authViewModel = authViewModel,
+                        isDarkMode = isDarkMode,
+                        onDarkModeToggle = { themeViewModel.setDarkMode(it) }
+                    )
+                }
+                composable("new_entry") {
+                    NewEntryScreen(onBackClick = { navController.popBackStack() })
+                }
             }
         }
     }

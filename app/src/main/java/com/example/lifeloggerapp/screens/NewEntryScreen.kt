@@ -41,12 +41,9 @@ import com.example.lifeloggerapp.entry.EntryViewModel
 import com.example.lifeloggerapp.entry.MediaState
 import com.example.lifeloggerapp.entry.MediaViewModel
 import com.example.lifeloggerapp.entry.MediaViewModelFactory
-import com.example.lifeloggerapp.ui.theme.CreamBackground
 import com.example.lifeloggerapp.ui.theme.SageGreen
-import com.example.lifeloggerapp.ui.theme.SageGreenLight
 import java.io.File
 
-// Defined outside composable to avoid recomposition issues
 data class AudioEntry(
     val filePath: String,
     val durationSec: Int,
@@ -70,17 +67,13 @@ fun NewEntryScreen(
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var createdEntryId by remember { mutableStateOf<String?>(null) }
 
-    // Recording state
     var isRecording by remember { mutableStateOf(false) }
     var audioFilePath by remember { mutableStateOf<String?>(null) }
     var recordingDuration by remember { mutableStateOf(0) }
     var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var amplitudeSamples by remember { mutableStateOf<List<Float>>(emptyList()) }
-
-    // Multiple audio entries
     var audioEntries by remember { mutableStateOf<List<AudioEntry>>(emptyList()) }
 
-    // Playback state
     var mediaPlayer by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
     var playbackProgress by remember { mutableStateOf(0f) }
@@ -91,21 +84,12 @@ fun NewEntryScreen(
 
     val tags = listOf("Workout", "Study", "Personal", "Event")
     val moods = listOf(
-        "😢" to "sad",
-        "😐" to "neutral",
-        "😊" to "calm",
-        "😁" to "happy",
-        "🤩" to "ecstatic"
+        "😢" to "sad", "😐" to "neutral", "😊" to "calm", "😁" to "happy", "🤩" to "ecstatic"
     )
-
-    // ── Launchers ─────────────────────────────────────────────
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3),
-        onResult = { uris ->
-            val combined = (selectedImageUris + uris).distinct().take(3)
-            selectedImageUris = combined
-        }
+        onResult = { uris -> selectedImageUris = (selectedImageUris + uris).distinct().take(3) }
     )
 
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -114,19 +98,14 @@ fun NewEntryScreen(
             if (granted) {
                 val file = File(context.cacheDir, "audio_${System.currentTimeMillis()}.m4a")
                 audioFilePath = file.absolutePath
-                val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    MediaRecorder(context)
-                } else {
-                    @Suppress("DEPRECATION")
-                    MediaRecorder()
-                }
+                val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(context)
+                else { @Suppress("DEPRECATION") MediaRecorder() }
                 recorder.apply {
                     setAudioSource(MediaRecorder.AudioSource.MIC)
                     setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                     setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                     setOutputFile(file.absolutePath)
-                    prepare()
-                    start()
+                    prepare(); start()
                 }
                 mediaRecorder = recorder
                 isRecording = true
@@ -136,32 +115,21 @@ fun NewEntryScreen(
         }
     )
 
-    // ── Effects ───────────────────────────────────────────────
-
     LaunchedEffect(entryState) {
         if (entryState is EntryState.Success) {
             val entryId = createdEntryId
             val userId = authRepository.getCurrentUserId()
             if (entryId != null && userId != null) {
-                selectedImageUris.forEach { uri ->
-                    mediaViewModel.uploadImage(entryId, userId, uri)
-                }
-                audioEntries.forEach { audio ->
-                    mediaViewModel.uploadAudio(entryId, userId, audio.filePath, audio.durationSec)
-                }
+                selectedImageUris.forEach { uri -> mediaViewModel.uploadImage(entryId, userId, uri) }
+                audioEntries.forEach { audio -> mediaViewModel.uploadAudio(entryId, userId, audio.filePath, audio.durationSec) }
             }
-            if (selectedImageUris.isEmpty() && audioEntries.isEmpty()) {
-                entryViewModel.resetState()
-                onBackClick()
-            }
+            if (selectedImageUris.isEmpty() && audioEntries.isEmpty()) { entryViewModel.resetState(); onBackClick() }
         }
     }
 
     LaunchedEffect(mediaState) {
         if (mediaState is MediaState.Success || mediaState is MediaState.Error) {
-            mediaViewModel.resetState()
-            entryViewModel.resetState()
-            onBackClick()
+            mediaViewModel.resetState(); entryViewModel.resetState(); onBackClick()
         }
     }
 
@@ -171,13 +139,9 @@ fun NewEntryScreen(
             var seconds = 0
             while (isRecording) {
                 kotlinx.coroutines.delay(100)
-                val amp = mediaRecorder?.maxAmplitude?.toFloat() ?: 0f
-                samples.add(amp)
+                samples.add(mediaRecorder?.maxAmplitude?.toFloat() ?: 0f)
                 amplitudeSamples = samples.toList()
-                if (samples.size % 10 == 0) {
-                    seconds++
-                    recordingDuration = seconds
-                }
+                if (samples.size % 10 == 0) { seconds++; recordingDuration = seconds }
             }
         }
     }
@@ -186,67 +150,36 @@ fun NewEntryScreen(
         if (isPlaying) {
             while (isPlaying) {
                 kotlinx.coroutines.delay(100)
-                val player = mediaPlayer
-                if (player != null && player.isPlaying) {
-                    playbackProgress = player.currentPosition.toFloat() / player.duration.toFloat()
-                }
+                val p = mediaPlayer
+                if (p != null && p.isPlaying) playbackProgress = p.currentPosition.toFloat() / p.duration.toFloat()
             }
-        } else {
-            playbackProgress = 0f
-        }
+        } else { playbackProgress = 0f }
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            mediaPlayer?.release()
-            mediaPlayer = null
-        }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────
+    DisposableEffect(Unit) { onDispose { mediaPlayer?.release(); mediaPlayer = null } }
 
     fun startRecording() {
         val file = File(context.cacheDir, "audio_${System.currentTimeMillis()}.m4a")
         audioFilePath = file.absolutePath
-        val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            MediaRecorder(context)
-        } else {
-            @Suppress("DEPRECATION")
-            MediaRecorder()
-        }
+        val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(context)
+        else { @Suppress("DEPRECATION") MediaRecorder() }
         recorder.apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             setOutputFile(file.absolutePath)
-            prepare()
-            start()
+            prepare(); start()
         }
-        mediaRecorder = recorder
-        isRecording = true
-        recordingDuration = 0
-        amplitudeSamples = emptyList()
+        mediaRecorder = recorder; isRecording = true; recordingDuration = 0; amplitudeSamples = emptyList()
     }
 
     fun stopRecording() {
-        mediaRecorder?.stop()
-        mediaRecorder?.release()
-        mediaRecorder = null
-        isRecording = false
-        val path = audioFilePath
-        if (path != null) {
-            audioEntries = audioEntries + AudioEntry(
-                filePath = path,
-                durationSec = recordingDuration,
-                amplitudeSamples = amplitudeSamples
-            )
+        mediaRecorder?.stop(); mediaRecorder?.release(); mediaRecorder = null; isRecording = false
+        audioFilePath?.let { path ->
+            audioEntries = audioEntries + AudioEntry(path, recordingDuration, amplitudeSamples)
         }
-        audioFilePath = null
-        amplitudeSamples = emptyList()
-        recordingDuration = 0
+        audioFilePath = null; amplitudeSamples = emptyList(); recordingDuration = 0
     }
-
-    // ── UI ────────────────────────────────────────────────────
 
     Scaffold(
         topBar = {
@@ -258,8 +191,7 @@ fun NewEntryScreen(
                     }
                 },
                 actions = {
-                    val isSaving = entryState is EntryState.Loading ||
-                            mediaState is MediaState.Uploading
+                    val isSaving = entryState is EntryState.Loading || mediaState is MediaState.Uploading
                     TextButton(
                         onClick = {
                             if (title.isNotBlank()) {
@@ -276,20 +208,14 @@ fun NewEntryScreen(
                         },
                         enabled = !isSaving && title.isNotBlank()
                     ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = SageGreen
-                            )
-                        } else {
-                            Text("Save", color = SageGreen, fontWeight = FontWeight.Bold)
-                        }
+                        if (isSaving) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = SageGreen)
+                        else Text("Save", color = SageGreen, fontWeight = FontWeight.Bold)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = CreamBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -303,25 +229,21 @@ fun NewEntryScreen(
                 text = java.time.LocalDate.now()
                     .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d"))
                     .uppercase(),
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text("How are you feeling?", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text("How are you feeling?", fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onBackground)
+
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 moods.forEach { (emoji, value) ->
-                    MoodEmoji(
-                        emoji = emoji,
-                        isSelected = selectedMood == value,
-                        onClick = { selectedMood = value }
-                    )
+                    MoodEmoji(emoji = emoji, isSelected = selectedMood == value, onClick = { selectedMood = value })
                 }
             }
 
@@ -329,61 +251,44 @@ fun NewEntryScreen(
 
             TextField(
                 value = title,
-                onValueChange = { input ->
-                    title = if (input.isNotEmpty()) input.replaceFirstChar { it.uppercase() }
-                    else input
-                },
+                onValueChange = { input -> title = if (input.isNotEmpty()) input.replaceFirstChar { it.uppercase() } else input },
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                placeholder = {
-                    Text("Title", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                },
+                placeholder = { Text("Title", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
                 )
             )
 
-            Row(
-                modifier = Modifier.padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                tags.forEach { tag ->
-                    TagItem(
-                        name = tag,
-                        isSelected = selectedTag == tag,
-                        onTagClick = { selectedTag = tag }
-                    )
-                }
+            Row(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                tags.forEach { tag -> TagItem(name = tag, isSelected = selectedTag == tag, onTagClick = { selectedTag = tag }) }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             if (entryState is EntryState.Error) {
-                Text(
-                    text = (entryState as EntryState.Error).message,
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                Text(text = (entryState as EntryState.Error).message, color = MaterialTheme.colorScheme.error,
+                    fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
             }
 
-            // Body — above media so keyboard doesn't push it off screen
             TextField(
                 value = note,
                 onValueChange = { note = it },
-                placeholder = { Text("Tell your story...") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 200.dp),
+                placeholder = { Text("Tell your story...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
                 )
             )
 
@@ -391,52 +296,26 @@ fun NewEntryScreen(
 
             // Image previews
             if (selectedImageUris.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     selectedImageUris.forEach { uri ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                        ) {
-                            AsyncImage(
-                                model = uri,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Crop
-                            )
+                        Box(modifier = Modifier.weight(1f).aspectRatio(1f)) {
+                            AsyncImage(model = uri, contentDescription = null,
+                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
                             IconButton(
                                 onClick = { selectedImageUris = selectedImageUris - uri },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(4.dp)
-                                    .size(24.dp)
+                                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp)
                                     .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                             ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Remove",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
-                                )
+                                Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
                             }
                         }
                     }
-                    repeat(3 - selectedImageUris.size) {
-                        Box(modifier = Modifier.weight(1f))
-                    }
+                    repeat(3 - selectedImageUris.size) { Box(modifier = Modifier.weight(1f)) }
                 }
                 if (selectedImageUris.size < 3) {
                     Text(
                         text = "${3 - selectedImageUris.size} more photo${if (3 - selectedImageUris.size == 1) "" else "s"} can be added",
-                        fontSize = 11.sp,
-                        color = Color.Gray
+                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -449,115 +328,63 @@ fun NewEntryScreen(
                     isPlaying = isPlaying && playingIndex == index,
                     playbackProgress = if (playingIndex == index) playbackProgress else 0f,
                     onPlayPause = {
-                        if (isPlaying && playingIndex == index) {
-                            mediaPlayer?.pause()
-                            isPlaying = false
-                        } else {
-                            if (playingIndex != index) {
-                                mediaPlayer?.release()
-                                mediaPlayer = null
-                                isPlaying = false
-                                playbackProgress = 0f
-                            }
+                        if (isPlaying && playingIndex == index) { mediaPlayer?.pause(); isPlaying = false }
+                        else {
+                            if (playingIndex != index) { mediaPlayer?.release(); mediaPlayer = null; isPlaying = false; playbackProgress = 0f }
                             if (mediaPlayer == null) {
                                 try {
-                                    val player = android.media.MediaPlayer().apply {
-                                        setDataSource(audio.filePath)
-                                        prepare()
-                                        start()
-                                        setOnCompletionListener {
-                                            isPlaying = false
-                                            playbackProgress = 0f
-                                            playingIndex = null
-                                            release()
-                                            mediaPlayer = null
-                                        }
+                                    mediaPlayer = android.media.MediaPlayer().apply {
+                                        setDataSource(audio.filePath); prepare(); start()
+                                        setOnCompletionListener { isPlaying = false; playbackProgress = 0f; playingIndex = null; release(); mediaPlayer = null }
                                     }
-                                    mediaPlayer = player
-                                } catch (e: Exception) {
-                                    return@AudioWaveformPlayer
-                                }
-                            } else {
-                                mediaPlayer?.start()
-                            }
-                            playingIndex = index
-                            isPlaying = true
+                                } catch (e: Exception) { return@AudioWaveformPlayer }
+                            } else { mediaPlayer?.start() }
+                            playingIndex = index; isPlaying = true
                         }
                     },
                     onRemove = {
-                        if (playingIndex == index) {
-                            mediaPlayer?.release()
-                            mediaPlayer = null
-                            isPlaying = false
-                            playbackProgress = 0f
-                            playingIndex = null
-                        }
+                        if (playingIndex == index) { mediaPlayer?.release(); mediaPlayer = null; isPlaying = false; playbackProgress = 0f; playingIndex = null }
                         audioEntries = audioEntries - audio
                     }
                 )
             }
 
-            // Live recording indicator
             if (isRecording) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                ) {
-                    Icon(Icons.Default.Mic, contentDescription = null, tint = SageGreen.copy(alpha = 0.3f))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
+                    Icon(Icons.Default.Mic, contentDescription = null, tint = Color.Red)
                     Spacer(Modifier.width(8.dp))
-                    Text("Recording... ${recordingDuration}s", fontSize = 13.sp, color = SageGreenLight)
+                    Text("Recording... ${recordingDuration}s", fontSize = 13.sp, color = Color.Red)
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Action buttons
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (selectedImageUris.size < 3) {
                     OutlinedButton(
-                        onClick = {
-                            photoPickerLauncher.launch(
-                                PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                                )
-                            )
-                        },
-                        shape = RoundedCornerShape(6.dp),
-                        border = BorderStroke(1.5.dp, SageGreen)
+                        onClick = { photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        shape = RoundedCornerShape(6.dp), border = BorderStroke(1.5.dp, SageGreen)
                     ) {
-                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = null)
+                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = SageGreen)
                         Spacer(Modifier.width(8.dp))
-                        Text("Image", fontWeight = FontWeight.SemiBold)
+                        Text("Image", fontWeight = FontWeight.SemiBold, color = SageGreen)
                     }
                 }
-
                 if (audioEntries.size < 3) {
                     OutlinedButton(
                         onClick = {
-                            if (isRecording) {
-                                stopRecording()
-                            } else {
-                                val hasPerm = ContextCompat.checkSelfPermission(
-                                    context, Manifest.permission.RECORD_AUDIO
-                                ) == PackageManager.PERMISSION_GRANTED
-                                if (hasPerm) {
-                                    startRecording()
-                                } else {
-                                    micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                }
+                            if (isRecording) stopRecording()
+                            else {
+                                val hasPerm = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                if (hasPerm) startRecording() else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             }
                         },
                         shape = RoundedCornerShape(6.dp),
                         border = if (isRecording) BorderStroke(1.5.dp, Color.Red) else BorderStroke(1.5.dp, SageGreen),
-                        colors = if (isRecording) ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color.Red
-                        ) else ButtonDefaults.outlinedButtonColors()
+                        colors = if (isRecording) ButtonDefaults.outlinedButtonColors(containerColor = Color.Red) else ButtonDefaults.outlinedButtonColors()
                     ) {
-                        Icon(
-                            if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
-                            contentDescription = null,
-                            tint = if (isRecording) Color.White else SageGreen
-                        )
+                        Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, contentDescription = null,
+                            tint = if (isRecording) Color.White else SageGreen)
                         Spacer(Modifier.width(8.dp))
                         Text(if (isRecording) "Stop" else "Record", color = if (isRecording) Color.White else SageGreen, fontWeight = FontWeight.SemiBold)
                     }
@@ -580,84 +407,40 @@ fun AudioWaveformPlayer(
 ) {
     val maxAmp = amplitudeSamples.maxOrNull()?.takeIf { it > 0 } ?: 1f
     val displayBars = 40
-
-    val bars = if (amplitudeSamples.isEmpty()) {
-        List(displayBars) { 0.15f }
-    } else {
-        List(displayBars) { i ->
-            val index = (i.toFloat() / displayBars * amplitudeSamples.size).toInt()
-                .coerceIn(0, amplitudeSamples.size - 1)
-            (amplitudeSamples[index] / maxAmp).coerceIn(0.05f, 1f)
-        }
+    val bars = if (amplitudeSamples.isEmpty()) List(displayBars) { 0.15f }
+    else List(displayBars) { i ->
+        val index = (i.toFloat() / displayBars * amplitudeSamples.size).toInt().coerceIn(0, amplitudeSamples.size - 1)
+        (amplitudeSamples[index] / maxAmp).coerceIn(0.05f, 1f)
     }
-
     val playedBars = (playbackProgress * displayBars).toInt()
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F0E4)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = onPlayPause,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(SageGreen, CircleShape)
-            ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
-                )
+            IconButton(onClick = onPlayPause, modifier = Modifier.size(40.dp).background(SageGreen, CircleShape)) {
+                Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null,
+                    tint = Color.White, modifier = Modifier.size(22.dp))
             }
-
             Spacer(modifier = Modifier.width(10.dp))
-
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 bars.forEachIndexed { index, amplitude ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height((amplitude * 32).dp.coerceIn(4.dp, 32.dp))
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(
-                                if (index < playedBars) SageGreen
-                                else SageGreen.copy(alpha = 0.3f)
-                            )
-                    )
+                    Box(modifier = Modifier.weight(1f).height((amplitude * 32).dp.coerceIn(4.dp, 32.dp))
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(if (index < playedBars) SageGreen else SageGreen.copy(alpha = 0.3f)))
                 }
             }
-
             Spacer(modifier = Modifier.width(10.dp))
-
-            Text(
-                text = "%d:%02d".format(durationSec / 60, durationSec % 60),
-                fontSize = 12.sp,
-                color = Color.Gray,
-                fontWeight = FontWeight.Medium
-            )
-
+            Text(text = "%d:%02d".format(durationSec / 60, durationSec % 60), fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = "Remove",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(16.dp)
-                )
+                Icon(Icons.Default.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -666,21 +449,17 @@ fun AudioWaveformPlayer(
 @Composable
 fun MoodEmoji(emoji: String, isSelected: Boolean, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .size(50.dp)
-            .clip(CircleShape)
-            .background(if (isSelected) Color(0xFFE1E8D1) else Color.Transparent)
+        modifier = Modifier.size(50.dp).clip(CircleShape)
+            .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
-    ) {
-        Text(emoji, fontSize = 24.sp)
-    }
+    ) { Text(emoji, fontSize = 24.sp) }
 }
 
 @Composable
 fun TagItem(name: String, isSelected: Boolean, onTagClick: () -> Unit) {
     Surface(
-        color = if (isSelected) Color(0xFFE1E8D1) else Color(0xFFEEEEEE),
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.clickable { onTagClick() }
     ) {
@@ -688,7 +467,7 @@ fun TagItem(name: String, isSelected: Boolean, onTagClick: () -> Unit) {
             text = name,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             fontSize = 12.sp,
-            color = if (isSelected) SageGreen else Color.Black,
+            color = if (isSelected) SageGreen else MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
         )
     }
