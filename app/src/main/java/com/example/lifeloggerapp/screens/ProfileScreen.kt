@@ -24,14 +24,13 @@ import com.example.lifeloggerapp.ui.theme.SageGreen
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
-    authViewModel: AuthViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
+    isDarkMode: Boolean = false,
+    onDarkModeToggle: (Boolean) -> Unit = {}
 ) {
-    var isDarkMode by remember { mutableStateOf(false) }
-
     val authState by authViewModel.authState.collectAsState()
     val currentUser = authViewModel.getCurrentUser()
     val userEmail = currentUser?.email ?: "No email"
-    // Use the part before @ as display name fallback until profiles table is set up
     val displayName = userEmail.substringBefore("@")
 
     LaunchedEffect(authState) {
@@ -44,28 +43,30 @@ fun ProfileScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Profile Image & Info
+        // Avatar
         Box(contentAlignment = Alignment.BottomEnd) {
             Box(
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .background(Color.LightGray),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.Person,
                     contentDescription = null,
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.size(60.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(
-                onClick = { /* Edit action — Phase 3 */ },
+                onClick = { },
                 modifier = Modifier
                     .size(30.dp)
                     .clip(CircleShape)
@@ -81,19 +82,34 @@ fun ProfileScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text(displayName, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(userEmail, color = Color.Gray, fontSize = 14.sp)
+
+        Text(
+            displayName,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            userEmail,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Settings card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column {
                 SettingsItem(Icons.Default.Sync, "Sync Status", "All data synced")
                 SettingsItem(Icons.Default.CloudQueue, "Backup & Restore", null)
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
                 Row(
                     modifier = Modifier
@@ -103,12 +119,28 @@ fun ProfileScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Nightlight, contentDescription = null, tint = Color.Gray)
+                        Icon(
+                            Icons.Default.Nightlight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Spacer(Modifier.width(16.dp))
-                        Text("Dark Mode")
+                        Text(
+                            "Dark Mode",
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
-                    Switch(checked = isDarkMode, onCheckedChange = { isDarkMode = it })
+                    Switch(
+                        checked = isDarkMode,
+                        onCheckedChange = { onDarkModeToggle(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = SageGreen
+                        )
+                    )
                 }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
                 SettingsItem(Icons.Default.Notifications, "Notifications", null)
                 SettingsItem(Icons.Default.VerifiedUser, "Privacy Policy", null)
@@ -117,24 +149,34 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Logout button
         Button(
             onClick = { authViewModel.signOut() },
             enabled = authState !is AuthState.Loading,
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFEBEE)),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            ),
             shape = RoundedCornerShape(12.dp)
         ) {
             if (authState is AuthState.Loading) {
                 CircularProgressIndicator(
-                    color = Color.Red,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp
                 )
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Logout, contentDescription = null, tint = Color.Red)
+                    Icon(
+                        Icons.Default.Logout,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
                     Spacer(Modifier.width(8.dp))
-                    Text("Logout", color = Color.Red)
+                    Text(
+                        "Logout",
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }
@@ -145,8 +187,8 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            StatCard("Total Logs", "—", SageGreen, Modifier.weight(1f))
-            StatCard("Streak", "—", Color(0xFFE8EAF6), Modifier.weight(1f))
+            StatCard("Total Logs", "—", Modifier.weight(1f), primary = true)
+            StatCard("Streak", "—", Modifier.weight(1f), primary = false)
         }
     }
 }
@@ -161,33 +203,56 @@ fun SettingsItem(icon: ImageVector, title: String, subtitle: String?) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = Color.Gray)
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(Modifier.width(16.dp))
             Column {
-                Text(title, fontSize = 16.sp)
-                if (subtitle != null) Text(subtitle, fontSize = 12.sp, color = Color.Gray)
+                Text(
+                    title,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
-        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
-fun StatCard(title: String, value: String, color: Color, modifier: Modifier) {
+fun StatCard(title: String, value: String, modifier: Modifier, primary: Boolean) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = color),
+        colors = CardDefaults.cardColors(
+            containerColor = if (primary) SageGreen
+            else MaterialTheme.colorScheme.surfaceVariant
+        ),
         shape = RoundedCornerShape(24.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 title,
-                color = if (color == SageGreen) Color.White else Color.Gray,
+                color = if (primary) Color.White
+                else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
             Text(
                 value,
-                color = if (color == SageGreen) Color.White else Color.Black,
+                color = if (primary) Color.White
+                else MaterialTheme.colorScheme.onSurface,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
