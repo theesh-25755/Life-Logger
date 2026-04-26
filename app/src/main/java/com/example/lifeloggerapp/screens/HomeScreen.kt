@@ -1,4 +1,4 @@
-package com.example.lifeloggerapp.ui.screens
+package com.example.lifeloggerapp.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.lifeloggerapp.data.local.EntryEntity
 import com.example.lifeloggerapp.entry.EntryViewModel
@@ -30,6 +32,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.example.lifeloggerapp.syncManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,11 +47,11 @@ fun HomeScreen(
     val todayEntries = entries.filter { it.createdAt?.startsWith(todayPrefix) == true }
     val earlierEntries = entries.filter { it.createdAt?.startsWith(todayPrefix) == false }
 
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(lifecycleOwner) {
         withContext(Dispatchers.IO) {
-            lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 syncManager.sync()
             }
         }
@@ -89,7 +93,7 @@ fun HomeScreen(
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(innerPadding)
+                .padding(top = innerPadding.calculateTopPadding())
                 .padding(horizontal = 16.dp)
                 .fillMaxSize()
         ) {
@@ -193,9 +197,9 @@ fun EntryTimelineItem(entry: EntryEntity, showLine: Boolean = true) {
 
     val timeFormatted = entry.createdAt?.let {
         try {
-            val instant = java.time.Instant.parse(it)
-            val local = instant.atZone(java.time.ZoneId.systemDefault())
-            java.time.format.DateTimeFormatter.ofPattern("h:mm a").format(local)
+            val instant = Instant.parse(it)
+            val local = instant.atZone(ZoneId.systemDefault())
+            DateTimeFormatter.ofPattern("h:mm a").format(local)
         } catch (e: Exception) { "" }
     } ?: ""
 

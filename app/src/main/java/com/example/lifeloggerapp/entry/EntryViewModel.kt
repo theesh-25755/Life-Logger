@@ -50,13 +50,15 @@ class EntryViewModel : ViewModel() {
         body: String?,
         mood: String?,
         category: String?,
-        tags: List<String>
+        tags: List<String>,
+        onCreated: ((String) -> Unit)? = null
     ) {
         val userId = authRepository.getCurrentUserId() ?: return
         viewModelScope.launch {
             _entryState.value = EntryState.Loading
             try {
-                repository.createEntry(userId, title, body, mood, category, tags)
+                val entry = repository.createEntry(userId, title, body, mood, category, tags)
+                onCreated?.invoke(entry.id)
                 _entryState.value = EntryState.Success
             } catch (e: Exception) {
                 _entryState.value = EntryState.Error(e.message ?: "Failed to create entry")

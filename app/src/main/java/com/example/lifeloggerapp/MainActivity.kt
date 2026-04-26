@@ -16,8 +16,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.lifeloggerapp.auth.AuthViewModel
+import com.example.lifeloggerapp.screens.HomeScreen
 import com.example.lifeloggerapp.ui.screens.*
 import com.example.lifeloggerapp.ui.theme.LifeLoggerAppTheme
+import com.russhwolf.settings.BuildConfig
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,6 +39,7 @@ fun AppRoot() {
     val authViewModel: AuthViewModel = viewModel()
 
     // Check if user is already logged in
+//    val startDestination = if (BuildConfig.DEBUG || authViewModel.isLoggedIn()) "home" else "login"
     val startDestination = if (authViewModel.isLoggedIn()) "home" else "login"
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -81,8 +84,8 @@ fun AppRoot() {
             composable("home") {
                 HomeScreen(onAddClick = { navController.navigate("new_entry") })
             }
-            composable("calendar") { CalendarScreen() }
-            composable("insights") { InsightsScreen() }
+//            composable("calendar") { CalendarScreen() }
+//            composable("insights") { InsightsScreen() }
             composable("profile") {
                 ProfileScreen(
                     onLogout = {
@@ -112,18 +115,18 @@ fun BottomNavigationBar(
             selected = currentRoute == "home",
             onClick = { navigateTo(navController, "home", currentRoute) }
         )
-        NavigationBarItem(
-            icon = { Icon(Icons.Default.DateRange, contentDescription = "Calendar") },
-            label = { Text("Calendar") },
-            selected = currentRoute == "calendar",
-            onClick = { navigateTo(navController, "calendar", currentRoute) }
-        )
-        NavigationBarItem(
-            icon = { Icon(Icons.Default.Assessment, contentDescription = "Insights") },
-            label = { Text("Insights") },
-            selected = currentRoute == "insights",
-            onClick = { navigateTo(navController, "insights", currentRoute) }
-        )
+//        NavigationBarItem(
+//            icon = { Icon(Icons.Default.DateRange, contentDescription = "Calendar") },
+//            label = { Text("Calendar") },
+//            selected = currentRoute == "calendar",
+//            onClick = { navigateTo(navController, "calendar", currentRoute) }
+//        )
+//        NavigationBarItem(
+//            icon = { Icon(Icons.Default.Assessment, contentDescription = "Insights") },
+//            label = { Text("Insights") },
+//            selected = currentRoute == "insights",
+//            onClick = { navigateTo(navController, "insights", currentRoute) }
+//        )
         NavigationBarItem(
             icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
             label = { Text("Profile") },
