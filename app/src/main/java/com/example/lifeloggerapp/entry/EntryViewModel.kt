@@ -66,6 +66,8 @@ class EntryViewModel : ViewModel() {
         }
     }
 
+    suspend fun getEntryById(id: String) = repository.getEntryById(id)
+
     fun updateEntry(
         id: String,
         title: String,

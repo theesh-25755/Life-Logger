@@ -39,11 +39,8 @@ class MediaViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             _mediaState.value = MediaState.Uploading
             val result = repository.uploadImage(entryId, userId, uri)
-            _mediaState.value = if (result.isSuccess) {
-                MediaState.Success
-            } else {
-                MediaState.Error(result.exceptionOrNull()?.message ?: "Image upload failed")
-            }
+            _mediaState.value = if (result.isSuccess) MediaState.Success
+            else MediaState.Error(result.exceptionOrNull()?.message ?: "Image upload failed")
         }
     }
 
@@ -51,11 +48,29 @@ class MediaViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             _mediaState.value = MediaState.Uploading
             val result = repository.uploadAudio(entryId, userId, filePath, durationSec)
-            _mediaState.value = if (result.isSuccess) {
-                MediaState.Success
-            } else {
-                MediaState.Error(result.exceptionOrNull()?.message ?: "Audio upload failed")
+            _mediaState.value = if (result.isSuccess) MediaState.Success
+            else MediaState.Error(result.exceptionOrNull()?.message ?: "Audio upload failed")
+        }
+    }
+
+    // Uploads all new media in one coroutine — used in edit mode
+    fun uploadAllMedia(
+        entryId: String,
+        userId: String,
+        newImageUris: List<Uri>,
+        newAudioEntries: List<com.example.lifeloggerapp.ui.screens.AudioEntry>,
+        onDone: () -> Unit
+    ) {
+        viewModelScope.launch {
+            _mediaState.value = MediaState.Uploading
+            try {
+                newImageUris.forEach { uri -> repository.uploadImage(entryId, userId, uri) }
+                newAudioEntries.forEach { audio -> repository.uploadAudio(entryId, userId, audio.filePath, audio.durationSec) }
+                _mediaState.value = MediaState.Success  // ← this triggers LaunchedEffect(mediaState) → onBackClick()
+            } catch (e: Exception) {
+                _mediaState.value = MediaState.Error(e.message ?: "Upload failed")
             }
+            onDone()  // reset entry state
         }
     }
 

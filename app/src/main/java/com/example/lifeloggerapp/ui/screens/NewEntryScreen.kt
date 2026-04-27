@@ -36,6 +36,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.lifeloggerapp.auth.AuthRepository
+import com.example.lifeloggerapp.data.local.MediaEntity
 import com.example.lifeloggerapp.entry.EntryState
 import com.example.lifeloggerapp.entry.EntryViewModel
 import com.example.lifeloggerapp.entry.MediaState
@@ -54,6 +55,7 @@ data class AudioEntry(
 @Composable
 fun NewEntryScreen(
     onBackClick: () -> Unit,
+    entryId: String? = null,
     entryViewModel: EntryViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -79,6 +81,13 @@ fun NewEntryScreen(
     var playbackProgress by remember { mutableStateOf(0f) }
     var playingIndex by remember { mutableStateOf<Int?>(null) }
 
+    // Edit mode media state
+    var existingImages by remember { mutableStateOf<List<MediaEntity>>(emptyList()) }
+    var existingAudios by remember { mutableStateOf<List<MediaEntity>>(emptyList()) }
+    var removedMediaIds by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    val isEditMode = entryId != null
+
     val entryState by entryViewModel.entryState.collectAsState()
     val mediaState by mediaViewModel.mediaState.collectAsState()
 
@@ -87,9 +96,15 @@ fun NewEntryScreen(
         "😢" to "sad", "😐" to "neutral", "😊" to "calm", "😁" to "happy", "🤩" to "ecstatic"
     )
 
+    // ── Launchers ─────────────────────────────────────────────
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3),
-        onResult = { uris -> selectedImageUris = (selectedImageUris + uris).distinct().take(3) }
+        onResult = { uris ->
+            val combined = (selectedImageUris + uris).distinct()
+            val remaining = 3 - existingImages.size
+            selectedImageUris = combined.take(remaining.coerceAtLeast(0))
+        }
     )
 
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -108,28 +123,82 @@ fun NewEntryScreen(
                     prepare(); start()
                 }
                 mediaRecorder = recorder
-                isRecording = true
-                recordingDuration = 0
-                amplitudeSamples = emptyList()
+                isRecording = true; recordingDuration = 0; amplitudeSamples = emptyList()
             }
         }
     )
 
+    // ── Effects ───────────────────────────────────────────────
+
+    // Pre-fill fields and load existing media in edit mode
+    LaunchedEffect(entryId) {
+        if (entryId != null) {
+            val existing = entryViewModel.getEntryById(entryId)
+            if (existing != null) {
+                title = existing.title
+                note = existing.body ?: ""
+                selectedMood = existing.mood ?: "neutral"
+                selectedTag = existing.category ?: "Personal"
+            }
+            mediaViewModel.loadMediaForEntry(entryId)
+        }
+    }
+
+    // Populate existing media lists when loaded
+    val loadedMedia by mediaViewModel.entryMedia.collectAsState()
+    LaunchedEffect(loadedMedia) {
+        if (isEditMode && loadedMedia.isNotEmpty()) {
+            existingImages = loadedMedia.filter { it.type == "image" }
+            existingAudios = loadedMedia.filter { it.type == "audio" }
+        }
+    }
+
     LaunchedEffect(entryState) {
         if (entryState is EntryState.Success) {
-            val entryId = createdEntryId
-            val userId = authRepository.getCurrentUserId()
-            if (entryId != null && userId != null) {
-                selectedImageUris.forEach { uri -> mediaViewModel.uploadImage(entryId, userId, uri) }
-                audioEntries.forEach { audio -> mediaViewModel.uploadAudio(entryId, userId, audio.filePath, audio.durationSec) }
+            if (isEditMode && entryId != null) {
+                val userId = authRepository.getCurrentUserId()
+                val allMedia = loadedMedia
+                removedMediaIds.forEach { id ->
+                    val media = allMedia.firstOrNull { it.id == id }
+                    if (media != null) mediaViewModel.deleteMedia(media.id, media.storagePath, media.type)
+                }
+                if (userId != null && (selectedImageUris.isNotEmpty() || audioEntries.isNotEmpty())) {
+                    mediaViewModel.uploadAllMedia(
+                        entryId = entryId,
+                        userId = userId,
+                        newImageUris = selectedImageUris,
+                        newAudioEntries = audioEntries,
+                        onDone = {
+                            entryViewModel.resetState()
+                            // Navigate back directly from onDone callback
+                            // mediaState.resetState() would set Idle not Success, so navigate here
+                        }
+                    )
+                    // Wait for uploadAllMedia to complete via mediaState
+                } else {
+                    entryViewModel.resetState()
+                    onBackClick()
+                }
+            } else {
+                val eId = createdEntryId
+                val userId = authRepository.getCurrentUserId()
+                if (eId != null && userId != null) {
+                    selectedImageUris.forEach { uri -> mediaViewModel.uploadImage(eId, userId, uri) }
+                    audioEntries.forEach { audio -> mediaViewModel.uploadAudio(eId, userId, audio.filePath, audio.durationSec) }
+                }
+                if (selectedImageUris.isEmpty() && audioEntries.isEmpty()) {
+                    entryViewModel.resetState()
+                    onBackClick()
+                }
             }
-            if (selectedImageUris.isEmpty() && audioEntries.isEmpty()) { entryViewModel.resetState(); onBackClick() }
         }
     }
 
     LaunchedEffect(mediaState) {
         if (mediaState is MediaState.Success || mediaState is MediaState.Error) {
-            mediaViewModel.resetState(); entryViewModel.resetState(); onBackClick()
+            mediaViewModel.resetState()
+            entryViewModel.resetState()
+            onBackClick()
         }
     }
 
@@ -158,6 +227,8 @@ fun NewEntryScreen(
 
     DisposableEffect(Unit) { onDispose { mediaPlayer?.release(); mediaPlayer = null } }
 
+    // ── Helpers ───────────────────────────────────────────────
+
     fun startRecording() {
         val file = File(context.cacheDir, "audio_${System.currentTimeMillis()}.m4a")
         audioFilePath = file.absolutePath
@@ -181,10 +252,12 @@ fun NewEntryScreen(
         audioFilePath = null; amplitudeSamples = emptyList(); recordingDuration = 0
     }
 
+    // ── UI ────────────────────────────────────────────────────
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("New Entry", fontWeight = FontWeight.Bold) },
+                title = { Text(if (isEditMode) "Edit Entry" else "New Entry", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -196,14 +269,25 @@ fun NewEntryScreen(
                         onClick = {
                             if (title.isNotBlank()) {
                                 if (isRecording) stopRecording()
-                                entryViewModel.createEntry(
-                                    title = title,
-                                    body = note.ifBlank { null },
-                                    mood = selectedMood,
-                                    category = selectedTag,
-                                    tags = listOf(selectedTag),
-                                    onCreated = { id -> createdEntryId = id }
-                                )
+                                if (isEditMode && entryId != null) {
+                                    entryViewModel.updateEntry(
+                                        id = entryId,
+                                        title = title,
+                                        body = note.ifBlank { null },
+                                        mood = selectedMood,
+                                        category = selectedTag,
+                                        tags = listOf(selectedTag)
+                                    )
+                                } else {
+                                    entryViewModel.createEntry(
+                                        title = title,
+                                        body = note.ifBlank { null },
+                                        mood = selectedMood,
+                                        category = selectedTag,
+                                        tags = listOf(selectedTag),
+                                        onCreated = { id -> createdEntryId = id }
+                                    )
+                                }
                             }
                         },
                         enabled = !isSaving && title.isNotBlank()
@@ -294,13 +378,42 @@ fun NewEntryScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Image previews
-            if (selectedImageUris.isNotEmpty()) {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // ── Image section (existing + new) ────────────────
+            val totalImages = existingImages.size + selectedImageUris.size
+            if (totalImages > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Existing images from Supabase
+                    existingImages.forEach { media ->
+                        Box(modifier = Modifier.weight(1f).aspectRatio(1f)) {
+                            AsyncImage(
+                                model = media.publicUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                            IconButton(
+                                onClick = {
+                                    removedMediaIds = removedMediaIds + media.id
+                                    existingImages = existingImages - media
+                                },
+                                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp)
+                                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                    // Newly picked local images
                     selectedImageUris.forEach { uri ->
                         Box(modifier = Modifier.weight(1f).aspectRatio(1f)) {
-                            AsyncImage(model = uri, contentDescription = null,
-                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+                            AsyncImage(
+                                model = uri, contentDescription = null,
+                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
+                            )
                             IconButton(
                                 onClick = { selectedImageUris = selectedImageUris - uri },
                                 modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(24.dp)
@@ -310,17 +423,60 @@ fun NewEntryScreen(
                             }
                         }
                     }
-                    repeat(3 - selectedImageUris.size) { Box(modifier = Modifier.weight(1f)) }
+                    // Empty filler boxes to maintain 3-column grid
+                    repeat((3 - totalImages).coerceAtLeast(0)) { Box(modifier = Modifier.weight(1f)) }
                 }
-                if (selectedImageUris.size < 3) {
+                if (totalImages < 3) {
                     Text(
-                        text = "${3 - selectedImageUris.size} more photo${if (3 - selectedImageUris.size == 1) "" else "s"} can be added",
+                        text = "${3 - totalImages} more photo${if (3 - totalImages == 1) "" else "s"} can be added",
                         fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // Audio waveform players
+            // ── Audio section (existing + new) ────────────────
+
+            // Existing audio cards (non-playable in edit mode — streamed from Supabase on detail screen)
+            existingAudios.forEach { media ->
+                val durationSec = media.durationSec ?: 0
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Mic, contentDescription = null, tint = SageGreen, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Audio note · %d:%02d".format(durationSec / 60, durationSec % 60),
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                removedMediaIds = removedMediaIds + media.id
+                                existingAudios = existingAudios - media
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+
+            // Newly recorded audio waveform players
             audioEntries.forEachIndexed { index, audio ->
                 AudioWaveformPlayer(
                     durationSec = audio.durationSec,
@@ -349,6 +505,7 @@ fun NewEntryScreen(
                 )
             }
 
+            // Live recording indicator
             if (isRecording) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
                     Icon(Icons.Default.Mic, contentDescription = null, tint = Color.Red)
@@ -359,8 +516,9 @@ fun NewEntryScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // ── Action buttons ────────────────────────────────
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (selectedImageUris.size < 3) {
+                if (existingImages.size + selectedImageUris.size < 3) {
                     OutlinedButton(
                         onClick = { photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                         shape = RoundedCornerShape(6.dp), border = BorderStroke(1.5.dp, SageGreen)
@@ -370,7 +528,7 @@ fun NewEntryScreen(
                         Text("Image", fontWeight = FontWeight.SemiBold, color = SageGreen)
                     }
                 }
-                if (audioEntries.size < 3) {
+                if (existingAudios.size + audioEntries.size < 3) {
                     OutlinedButton(
                         onClick = {
                             if (isRecording) stopRecording()
@@ -440,7 +598,8 @@ fun AudioWaveformPlayer(
             Text(text = "%d:%02d".format(durationSec / 60, durationSec % 60), fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Close, contentDescription = "Remove",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
             }
         }
     }

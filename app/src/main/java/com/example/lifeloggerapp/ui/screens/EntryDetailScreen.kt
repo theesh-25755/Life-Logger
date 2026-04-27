@@ -37,6 +37,7 @@ import java.time.format.DateTimeFormatter
 fun EntryDetailScreen(
     entryId: String,
     onBackClick: () -> Unit,
+    onEditClick: (String) -> Unit = {},
     entryViewModel: EntryViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -50,6 +51,8 @@ fun EntryDetailScreen(
     var isPlaying by remember { mutableStateOf(false) }
     var playingMediaId by remember { mutableStateOf<String?>(null) }
     var playbackProgress by remember { mutableStateOf(0f) }
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(entryId) {
         mediaViewModel.loadMediaForEntry(entryId)
@@ -97,6 +100,30 @@ fun EntryDetailScreen(
     val images = mediaList.filter { it.type == "image" }
     val audios = mediaList.filter { it.type == "audio" }
 
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Entry") },
+            text = { Text("This entry will be permanently deleted. This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        entryViewModel.deleteEntry(entryId)
+                        showDeleteDialog = false
+                        onBackClick()
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -107,11 +134,11 @@ fun EntryDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = { onEditClick(entryId) }) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit")
                     }
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.Share, contentDescription = "Share")
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

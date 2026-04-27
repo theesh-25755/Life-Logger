@@ -106,10 +106,18 @@ fun AppRoot() {
                     NewEntryScreen(onBackClick = { navController.popBackStack() })
                 }
                 composable("entry_detail/{entryId}") { backStackEntry ->
-                    val entryId = backStackEntry.arguments?.getString("entryId") ?: return@composable
+                    val eId = backStackEntry.arguments?.getString("entryId") ?: return@composable
                     EntryDetailScreen(
-                        entryId = entryId,
-                        onBackClick = { navController.popBackStack() }
+                        entryId = eId,
+                        onBackClick = { navController.popBackStack() },
+                        onEditClick = { id -> navController.navigate("edit_entry/$id") }
+                    )
+                }
+                composable("edit_entry/{entryId}") { backStackEntry ->
+                    val eId = backStackEntry.arguments?.getString("entryId") ?: return@composable
+                    NewEntryScreen(
+                        onBackClick = { navController.popBackStack() },
+                        entryId = eId
                     )
                 }
             }
