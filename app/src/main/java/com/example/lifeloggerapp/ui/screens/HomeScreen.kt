@@ -1,4 +1,4 @@
-package com.example.lifeloggerapp.screens
+package com.example.lifeloggerapp.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -37,6 +37,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun HomeScreen(
     onAddClick: () -> Unit,
+    onEntryClick: (String) -> Unit,
     entryViewModel: EntryViewModel = viewModel()
 ) {
     val entries by entryViewModel.entries.collectAsState()
@@ -155,7 +156,8 @@ fun HomeScreen(
                         items(todayEntries) { entry ->
                             EntryTimelineItem(
                                 entry = entry,
-                                showLine = entry != todayEntries.last()
+                                showLine = entry != todayEntries.last(),
+                                onEntryClick = onEntryClick
                             )
                         }
                     }
@@ -164,7 +166,8 @@ fun HomeScreen(
                         items(earlierEntries) { entry ->
                             EntryTimelineItem(
                                 entry = entry,
-                                showLine = entry != earlierEntries.last()
+                                showLine = entry != earlierEntries.last(),
+                                onEntryClick = onEntryClick
                             )
                         }
                     }
@@ -186,7 +189,7 @@ fun SectionLabel(text: String) {
 }
 
 @Composable
-fun EntryTimelineItem(entry: EntryEntity, showLine: Boolean = true) {
+fun EntryTimelineItem(entry: EntryEntity, showLine: Boolean = true, onEntryClick: (String) -> Unit = {}) {
     val moodEmoji = when (entry.mood) {
         "sad"      -> "😢"
         "neutral"  -> "😐"
@@ -230,6 +233,7 @@ fun EntryTimelineItem(entry: EntryEntity, showLine: Boolean = true) {
         }
 
         Card(
+            onClick = { onEntryClick(entry.id) },
             modifier = Modifier
                 .padding(bottom = 24.dp, end = 8.dp)
                 .fillMaxWidth(),

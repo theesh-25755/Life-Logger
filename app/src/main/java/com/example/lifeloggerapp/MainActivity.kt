@@ -16,10 +16,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.lifeloggerapp.auth.AuthViewModel
-import com.example.lifeloggerapp.screens.HomeScreen
+import com.example.lifeloggerapp.ui.screens.HomeScreen
 import com.example.lifeloggerapp.ui.screens.*
 import com.example.lifeloggerapp.ui.theme.LifeLoggerAppTheme
-import com.russhwolf.settings.BuildConfig
+import com.example.lifeloggerapp.ui.screens.EntryDetailScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,7 +83,10 @@ fun AppRoot() {
                     )
                 }
                 composable("home") {
-                    HomeScreen(onAddClick = { navController.navigate("new_entry") })
+                    HomeScreen(
+                        onAddClick = { navController.navigate("new_entry") },
+                        onEntryClick = { entryId -> navController.navigate("entry_detail/$entryId") }
+                    )
                 }
 //                composable("calendar") { CalendarScreen() }
 //                composable("insights") { InsightsScreen() }
@@ -101,6 +104,13 @@ fun AppRoot() {
                 }
                 composable("new_entry") {
                     NewEntryScreen(onBackClick = { navController.popBackStack() })
+                }
+                composable("entry_detail/{entryId}") { backStackEntry ->
+                    val entryId = backStackEntry.arguments?.getString("entryId") ?: return@composable
+                    EntryDetailScreen(
+                        entryId = entryId,
+                        onBackClick = { navController.popBackStack() }
+                    )
                 }
             }
         }
