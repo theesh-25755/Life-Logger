@@ -4,7 +4,10 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(
     tableName = "media",
     foreignKeys = [ForeignKey(
@@ -18,10 +21,10 @@ import androidx.room.PrimaryKey
 data class MediaEntity(
     @PrimaryKey
     val id: String,
-    val entryId: String,
+    @SerialName("entry_id")     val entryId: String,
     val type: String,
-    val storagePath: String,
-    val publicUrl: String? = null,
-    val durationSec: Int? = null,
-    val createdAt: String? = null
+    @SerialName("storage_path") val storagePath: String,
+    @SerialName("public_url")   val publicUrl: String? = null,
+    @SerialName("duration_sec") val durationSec: Int? = null,
+    @SerialName("created_at")   val createdAt: String? = null
 )

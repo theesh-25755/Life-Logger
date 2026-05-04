@@ -10,9 +10,10 @@ import androidx.room.RoomDatabase
         EntryEntity::class,
         TagEntity::class,
         MediaEntity::class,
-        PendingOperationEntity::class
+        PendingOperationEntity::class,
+        PendingMediaOperationEntity::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class LifeLogDatabase : RoomDatabase() {
@@ -21,6 +22,7 @@ abstract class LifeLogDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun mediaDao(): MediaDao
     abstract fun pendingOperationDao(): PendingOperationDao
+    abstract fun pendingMediaOperationDao(): PendingMediaOperationDao
 
     companion object {
         @Volatile
@@ -32,7 +34,7 @@ abstract class LifeLogDatabase : RoomDatabase() {
                     context.applicationContext,
                     LifeLogDatabase::class.java,
                     "lifelog_database"
-                ).build().also { INSTANCE = it }
+                ).fallbackToDestructiveMigration().build().also { INSTANCE = it }
             }
         }
     }
