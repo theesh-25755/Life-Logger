@@ -46,11 +46,8 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             val result = repository.signIn(email, password)
-            _authState.value = if (result.isSuccess) {
-                AuthState.Success
-            } else {
-                AuthState.Error(result.exceptionOrNull()?.message ?: "Sign in failed")
-            }
+            _authState.value = if (result.isSuccess) AuthState.Success
+            else AuthState.Error(result.exceptionOrNull()?.message ?: "Sign in failed")
         }
     }
 
