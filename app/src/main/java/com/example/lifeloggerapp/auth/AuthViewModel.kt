@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.example.lifeloggerapp.syncManager
 
 sealed class AuthState {
     object Idle : AuthState()
@@ -46,8 +47,12 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             val result = repository.signIn(email, password)
-            _authState.value = if (result.isSuccess) AuthState.Success
-            else AuthState.Error(result.exceptionOrNull()?.message ?: "Sign in failed")
+            _authState.value = if (result.isSuccess) {
+                syncManager.clearLastSyncedAt()
+                AuthState.Success
+            } else {
+                AuthState.Error(result.exceptionOrNull()?.message ?: "Sign in failed")
+            }
         }
     }
 

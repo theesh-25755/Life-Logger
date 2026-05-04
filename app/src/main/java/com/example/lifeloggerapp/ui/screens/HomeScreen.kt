@@ -117,16 +117,6 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            if (allEntries.any { !it.synced }) Icons.Default.CloudOff
-                            else Icons.Default.CloudDone,
-                            contentDescription = null,
-                            tint = if (allEntries.any { !it.synced })
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            else SageGreen
-                        )
-                        Spacer(Modifier.width(8.dp))
-//                        Text("My Logs", fontWeight = FontWeight.Bold)
                         Column() {
                             Text(
                                 text = LocalDate.now()
@@ -176,42 +166,6 @@ fun HomeScreen(
         ) {
             // ── Header ────────────────────────────────────────
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-//                Spacer(modifier = Modifier.height(16.dp))
-
-//                Text(
-//                    text = LocalDate.now()
-//                        .format(DateTimeFormatter.ofPattern("EEEE, MMMM d"))
-//                        .uppercase(),
-//                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-//                    fontSize = 12.sp,
-//                    fontWeight = FontWeight.SemiBold
-//                )
-//
-//                Text(
-//                    text = "Daily Overview",
-//                    fontSize = 24.sp,
-//                    fontWeight = FontWeight.Bold,
-//                    color = MaterialTheme.colorScheme.onBackground,
-//                    modifier = Modifier.padding(vertical = 8.dp)
-//                )
-
-//                Spacer(modifier = Modifier.height(16.dp))
-//
-//                OverviewCard(
-//                    title = "${todayEntries.size} ${if (todayEntries.size == 1) "Log" else "Logs"}",
-//                    subtitle = "Documented today",
-//                    icon = "📝"
-//                )
-//
-//                Spacer(modifier = Modifier.height(12.dp))
-//
-//                OverviewCard(
-//                    title = todayEntries.firstOrNull()?.mood?.replaceFirstChar { it.uppercase() }
-//                        ?: "No logs",
-//                    subtitle = "Latest mood",
-//                    icon = "✨"
-//                )
-
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // ── Search bar ────────────────────────────────

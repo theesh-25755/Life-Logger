@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.example.lifeloggerapp.data.local.EntryEntity
+import com.example.lifeloggerapp.data.local.MediaEntity
 import com.example.lifeloggerapp.data.local.TagEntity
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +14,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.storage.storage
 
 sealed class SyncState {
     object Idle : SyncState()
@@ -44,9 +46,11 @@ class SyncManager(private val context: Context) {
             _syncState.value = SyncState.Syncing
             try {
                 replayPendingOperations()
+                replayPendingMediaUploads()
                 pullFromSupabase()
                 _syncState.value = SyncState.Idle
             } catch (e: Exception) {
+                android.util.Log.e("SyncManager", "Sync failed: ${e.message}", e)
                 _syncState.value = SyncState.Error(e.message ?: "Sync failed")
             }
         }
@@ -76,6 +80,38 @@ class SyncManager(private val context: Context) {
             } catch (e: Exception) {
                 // Leave in queue, retry next sync
                 android.util.Log.e("SyncManager", "Failed to replay op ${operation.id}: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun replayPendingMediaUploads() {
+        val pending = database.pendingMediaOperationDao().getAllPending()
+        pending.forEach { op ->
+            try {
+                val file = java.io.File(op.localPath)
+                if (!file.exists()) {
+                    // File no longer on device — remove from queue
+                    database.pendingMediaOperationDao().delete(op.id)
+                    return@forEach
+                }
+                val bytes = file.readBytes()
+                val bucket = if (op.type == "image") "entry-images" else "entry-audio"
+                supabase.storage[bucket].upload(op.localPath.substringAfterLast("/").let {
+                    "${op.userId}/${op.entryId}/$it"
+                }, bytes)
+                val publicUrl = supabase.storage[bucket].publicUrl(
+                    "${op.userId}/${op.entryId}/${op.localPath.substringAfterLast("/")}"
+                )
+                // Update media row with public URL
+                val mediaDao = database.mediaDao()
+                val existing = mediaDao.getMediaForEntryOnce(op.entryId)
+                    .firstOrNull { it.id == op.mediaId }
+                if (existing != null) {
+                    mediaDao.upsertMedia(existing.copy(publicUrl = publicUrl))
+                }
+                database.pendingMediaOperationDao().delete(op.id)
+            } catch (e: Exception) {
+                android.util.Log.e("SyncManager", "Media replay failed: ${e.message}")
             }
         }
     }
@@ -149,40 +185,50 @@ class SyncManager(private val context: Context) {
     // ── Pull changes from Supabase since last sync ────────────
 
     private suspend fun pullFromSupabase() {
-        val userId = supabase.auth.currentUserOrNull()?.id ?: return
-        val lastSynced = getLastSyncedAt()
+        val userId = supabase.auth.currentUserOrNull()?.id ?: run {
+            android.util.Log.e("SyncManager", "Pull skipped: no user")
+            return
+        }
+        android.util.Log.d("SyncManager", "Pulling for userId=$userId")
 
-        val response = if (lastSynced != null) {
-            supabase.postgrest["entries"].select {
-                filter {
-                    eq("user_id", userId)
-                    gt("updated_at", lastSynced)
-                }
-            }
-        } else {
-            supabase.postgrest["entries"].select {
+        try {
+            // Always pull ALL entries for this user — delta filtering caused missed entries
+            val response = supabase.postgrest["entries"].select {
                 filter { eq("user_id", userId) }
             }
-        }
 
-        val remoteEntries = response.decodeList<EntryEntity>()
+            val remoteEntries = response.decodeList<EntryEntity>()
+            android.util.Log.d("SyncManager", "Fetched ${remoteEntries.size} entries from Supabase")
 
-        remoteEntries.forEach { remote ->
-            val local = entryDao.getEntryById(remote.id)
-            if (local == null) {
-                // New entry from another device
-                entryDao.upsertEntry(remote.copy(synced = true))
-            } else {
-                // Conflict resolution — last write wins by updated_at
-                val remoteTime = remote.updatedAt ?: ""
-                val localTime = local.updatedAt ?: ""
-                if (remoteTime > localTime) {
+            remoteEntries.forEach { remote ->
+                val local = entryDao.getEntryById(remote.id)
+                if (local == null) {
                     entryDao.upsertEntry(remote.copy(synced = true))
+                } else {
+                    val remoteTime = remote.updatedAt ?: ""
+                    val localTime = local.updatedAt ?: ""
+                    if (remoteTime > localTime) {
+                        entryDao.upsertEntry(remote.copy(synced = true))
+                    }
                 }
             }
-        }
 
-        saveLastSyncedAt(java.time.Instant.now().toString())
+            // Pull ALL media for this user's entries
+            val allEntryIds = remoteEntries.map { it.id }
+            if (allEntryIds.isNotEmpty()) {
+                val mediaResponse = supabase.postgrest["media"].select {
+                    filter { isIn("entry_id", allEntryIds) }
+                }
+                val remoteMedia = mediaResponse.decodeList<MediaEntity>()
+                android.util.Log.d("SyncManager", "Fetched ${remoteMedia.size} media items")
+                remoteMedia.forEach { database.mediaDao().upsertMedia(it) }
+            }
+
+            saveLastSyncedAt(java.time.Instant.now().toString())
+        } catch (e: Exception) {
+            android.util.Log.e("SyncManager", "pullFromSupabase failed: ${e.message}", e)
+            throw e
+        }
     }
 
     // ── Last synced timestamp (SharedPreferences) ─────────────
@@ -195,5 +241,10 @@ class SyncManager(private val context: Context) {
     private fun saveLastSyncedAt(timestamp: String) {
         val prefs = context.getSharedPreferences("lifelog_sync", Context.MODE_PRIVATE)
         prefs.edit().putString("last_synced_at", timestamp).apply()
+    }
+
+    fun clearLastSyncedAt() {
+        val prefs = context.getSharedPreferences("lifelog_sync", Context.MODE_PRIVATE)
+        prefs.edit().remove("last_synced_at").apply()
     }
 }
