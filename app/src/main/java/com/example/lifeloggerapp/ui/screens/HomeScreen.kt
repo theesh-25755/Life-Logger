@@ -126,7 +126,25 @@ fun HomeScreen(
                             else SageGreen
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("My Logs", fontWeight = FontWeight.Bold)
+//                        Text("My Logs", fontWeight = FontWeight.Bold)
+                        Column() {
+                            Text(
+                                text = LocalDate.now()
+                                    .format(DateTimeFormatter.ofPattern("EEEE, MMMM d"))
+                                    .uppercase(),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+
+                            Text(
+                                text = "Daily Overview",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -158,24 +176,24 @@ fun HomeScreen(
         ) {
             // ── Header ────────────────────────────────────────
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Spacer(modifier = Modifier.height(16.dp))
+//                Spacer(modifier = Modifier.height(16.dp))
 
-                Text(
-                    text = LocalDate.now()
-                        .format(DateTimeFormatter.ofPattern("EEEE, MMMM d"))
-                        .uppercase(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Text(
-                    text = "Daily Overview",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
+//                Text(
+//                    text = LocalDate.now()
+//                        .format(DateTimeFormatter.ofPattern("EEEE, MMMM d"))
+//                        .uppercase(),
+//                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                    fontSize = 12.sp,
+//                    fontWeight = FontWeight.SemiBold
+//                )
+//
+//                Text(
+//                    text = "Daily Overview",
+//                    fontSize = 24.sp,
+//                    fontWeight = FontWeight.Bold,
+//                    color = MaterialTheme.colorScheme.onBackground,
+//                    modifier = Modifier.padding(vertical = 8.dp)
+//                )
 
 //                Spacer(modifier = Modifier.height(16.dp))
 //

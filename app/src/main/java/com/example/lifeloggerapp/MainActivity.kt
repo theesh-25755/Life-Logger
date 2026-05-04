@@ -20,6 +20,7 @@ import com.example.lifeloggerapp.ui.screens.HomeScreen
 import com.example.lifeloggerapp.ui.screens.*
 import com.example.lifeloggerapp.ui.theme.LifeLoggerAppTheme
 import com.example.lifeloggerapp.ui.screens.EntryDetailScreen
+import com.russhwolf.settings.BuildConfig
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,7 +42,7 @@ fun AppRoot() {
     val isDarkMode by themeViewModel.isDarkMode.collectAsState()
 
     val startDestination = if (authViewModel.isLoggedIn()) "home" else "login"
-    //    val startDestination = if (BuildConfig.DEBUG || authViewModel.isLoggedIn()) "home" else "login"
+//        val startDestination = if (BuildConfig.DEBUG || authViewModel.isLoggedIn()) "home" else "login"
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
