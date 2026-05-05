@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,14 +37,19 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.Boolean
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
 fun HomeScreen(
     onAddClick: () -> Unit,
     onEntryClick: (String) -> Unit,
-    entryViewModel: EntryViewModel = viewModel()
+    entryViewModel: EntryViewModel = viewModel(),
+    isDarkMode: Boolean = false,
+    onDarkModeToggle: (Boolean) -> Unit = {}
 ) {
+    val context = LocalContext.current
+
     val allEntries by entryViewModel.entries.collectAsState()
 
     // ── Search & filter state ─────────────────────────────────
@@ -138,8 +144,9 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    IconButton(onClick = { onDarkModeToggle(!isDarkMode) }) {
+                        Icon(if (isDarkMode) Icons.Default.Nightlight
+                        else Icons.Default.WbSunny, contentDescription = "Theme")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

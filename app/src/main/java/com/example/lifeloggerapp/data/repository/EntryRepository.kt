@@ -25,6 +25,8 @@ class EntryRepository {
 
     suspend fun getEntryById(id: String): EntryEntity? = entryDao.getEntryById(id)
 
+    fun getAllEntriesForUser(userId: String): Flow<List<EntryEntity>> = entryDao.getAllEntriesForUser(userId)
+
     // ── Create ────────────────────────────────────────────────
 
     suspend fun createEntry(

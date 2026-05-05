@@ -2,10 +2,13 @@ package com.example.lifeloggerapp.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.lifeloggerapp.database
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import com.example.lifeloggerapp.syncManager
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 sealed class AuthState {
     object Idle : AuthState()
@@ -60,11 +63,14 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             val result = repository.signOut()
-            _authState.value = if (result.isSuccess) {
-                AuthState.Success
-            } else {
-                AuthState.Error(result.exceptionOrNull()?.message ?: "Sign out failed")
+            if (result.isSuccess) {
+                withContext(Dispatchers.IO) {
+                    database.clearAllTables()
+                }
+                syncManager.clearLastSyncedAt()
             }
+            _authState.value = if (result.isSuccess) AuthState.Success
+            else AuthState.Error(result.exceptionOrNull()?.message ?: "Sign out failed")
         }
     }
 
