@@ -36,11 +36,10 @@ class EntryViewModel : ViewModel() {
     }
 
     fun loadEntries() {
+        val userId = authRepository.getCurrentUserId() ?: return
         viewModelScope.launch {
-            repository.getAllEntries()
-                .catch { e ->
-                    _entryState.value = EntryState.Error(e.message ?: "Failed to load entries")
-                }
+            repository.getAllEntriesForUser(userId)
+                .catch { e -> _entryState.value = EntryState.Error(e.message ?: "Failed to load entries") }
                 .collect { _entries.value = it }
         }
     }

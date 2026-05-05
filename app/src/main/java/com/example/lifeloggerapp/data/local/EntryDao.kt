@@ -12,6 +12,9 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE id = :id AND deletedAt IS NULL")
     suspend fun getEntryById(id: String): EntryEntity?
 
+    @Query("SELECT * FROM entries WHERE userId = :userId AND deletedAt IS NULL ORDER BY createdAt DESC")
+    fun getAllEntriesForUser(userId: String): Flow<List<EntryEntity>>
+
     @Query("SELECT * FROM entries WHERE updatedAt > :since AND deletedAt IS NULL")
     suspend fun getEntriesModifiedSince(since: String): List<EntryEntity>
 

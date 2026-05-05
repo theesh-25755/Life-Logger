@@ -69,7 +69,9 @@ fun AppRoot() {
                             }
                         },
                         onNavigateToRegister = { navController.navigate("register") },
-                        authViewModel = authViewModel
+                        authViewModel = authViewModel,
+                        isDarkMode = isDarkMode,
+                        onDarkModeToggle = { themeViewModel.setDarkMode(it) }
                     )
                 }
                 composable("register") {
@@ -80,13 +82,17 @@ fun AppRoot() {
                             }
                         },
                         onNavigateToLogin = { navController.popBackStack() },
-                        authViewModel = authViewModel
+                        authViewModel = authViewModel,
+                        isDarkMode = isDarkMode,
+                        onDarkModeToggle = { themeViewModel.setDarkMode(it) }
                     )
                 }
                 composable("home") {
                     HomeScreen(
                         onAddClick = { navController.navigate("new_entry") },
-                        onEntryClick = { entryId -> navController.navigate("entry_detail/$entryId") }
+                        onEntryClick = { entryId -> navController.navigate("entry_detail/$entryId") },
+                        isDarkMode = isDarkMode,
+                        onDarkModeToggle = { themeViewModel.setDarkMode(it) }
                     )
                 }
 //                composable("calendar") { CalendarScreen() }
